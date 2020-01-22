@@ -36,12 +36,13 @@ func (s *tagSorter) Visit(node ast.Node) ast.Visitor {
 					sort.Slice(keyValues, func(i, j int) bool {
 						return keyValues[i].Key < keyValues[j].Key
 					})
-					var keyValueRows []string
+					var keyValuesRaw []string
 					for _, kv := range keyValues {
-						keyValueRows = append(keyValueRows, kv.KeyValue)
+						keyValuesRaw = append(keyValuesRaw, kv.KeyValue)
 					}
 
-					field.Tag.Value = quote + strings.Join(keyValueRows, " ") + quote
+					field.Tag.Value = quote + strings.Join(keyValuesRaw, " ") + quote
+					field.Tag.ValuePos = 0
 
 				}
 			}
@@ -67,7 +68,7 @@ func ParseTag(tag string) (quote string, keyValues []KeyValue, err error) {
 		err = ErrInvalidTag
 		return
 	}
-	quote = tag[0:1]
+	quote = tag[:1]
 	tag = tag[1 : len(tag)-1]
 
 	for tag != "" {

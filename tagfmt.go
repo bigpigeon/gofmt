@@ -9,7 +9,6 @@ package main
 
 import (
 	"go/ast"
-	"sort"
 	"strings"
 )
 
@@ -21,31 +20,55 @@ func (s *tagFormatter) Visit(node ast.Node) ast.Visitor {
 	switch n := node.(type) {
 	case *ast.StructType:
 		if n.Fields != nil {
-
-			for _, field := range n.Fields.List {
-
+			var longestList []int
+			var groupStart int
+			for i, field := range n.Fields.List {
 				if field.Tag != nil {
-
-					quote, keyValues, err := ParseTag(field.Tag.Value)
+					_, keyValues, err := ParseTag(field.Tag.Value)
 					if err != nil {
 						s.Err = err
 						return nil
 					}
-					sort.Slice(keyValues, func(i, j int) bool {
-						return keyValues[i].Key < keyValues[j].Key
-					})
-					var keyValueRows []string
-					for _, kv := range keyValues {
-						keyValueRows = append(keyValueRows, kv.KeyValue)
+					for i, kv := range keyValues {
+						if len(longestList) <= i {
+							longestList = append(longestList, 0)
+						}
+						longestList[i] = max(len(kv.KeyValue), longestList[i])
 					}
-
-					field.Tag.Value = quote + strings.Join(keyValueRows, " ") + quote
-
+				} else {
+					fieldsTagFormat(n.Fields.List[i:groupStart], longestList)
+					groupStart = i + 1
+					longestList = nil
 				}
 			}
+			fieldsTagFormat(n.Fields.List[groupStart:], longestList)
 		}
 	}
 	return s
+}
+
+func fieldsTagFormat(fields []*ast.Field, longestList []int) {
+	for _, f := range fields {
+		quote, keyValues, err := ParseTag(f.Tag.Value)
+		if err != nil {
+			// must be nil error
+			panic(err)
+		}
+		var keyValueRaw []string
+		for i, kv := range keyValues {
+			keyValueRaw = append(keyValueRaw, kv.KeyValue+strings.Repeat(" ", longestList[i]-len(kv.KeyValue)))
+		}
+
+		f.Tag.Value = quote + strings.Join(keyValueRaw, " ") + quote
+		f.Tag.ValuePos = 0
+	}
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func tagFmt(f *ast.File) error {
